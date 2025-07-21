@@ -8,15 +8,37 @@ class TypeCheckListener(SimpleLangListener):
     self.errors = []
     self.types = {}
 
-  def enterMulDiv(self, ctx: SimpleLangParser.MulDivContext):
+  def enterMulDivModPow(self, ctx: SimpleLangParser.MulDivModPowContext):
     pass
 
-  def exitMulDiv(self, ctx: SimpleLangParser.MulDivContext):
+  def exitMulDivModPow(self, ctx: SimpleLangParser.MulDivModPowContext):
     left_type = self.types[ctx.expr(0)]
     right_type = self.types[ctx.expr(1)]
+    operator = ctx.op.text
+
+    # No se permiten booleanos en operaciones
+    if isinstance(left_type, BoolType) or isinstance(right_type, BoolType):
+        self.errors.append(f"Boolean values are not allowed in '{operator}' operation: {left_type}, {right_type}")
+        self.types[ctx] = None
+        return
+    # Reglas para nuevas operaciones
+    if operator == '%' and (not isinstance(left_type, IntType) or not isinstance(right_type, IntType)):
+        self.errors.append(f"Modulo (%) requires integer operands: {left_type}, {right_type}")
+        self.types[ctx] = None
+        return
+    if operator == '^' and not (self.is_valid_arithmetic_operation(left_type, right_type)):
+        self.errors.append(f"Exponentiation (^) requires numeric operands: {left_type}, {right_type}")
+        self.types[ctx] = None
+        return
     if not self.is_valid_arithmetic_operation(left_type, right_type):
-      self.errors.append(f"Unsupported operand types for * or /: {left_type} and {right_type}")
-    self.types[ctx] = FloatType() if isinstance(left_type, FloatType) or isinstance(right_type, FloatType) else IntType()
+        self.errors.append(f"Unsupported operand types for '{operator}': {left_type} and {right_type}")
+        self.types[ctx] = None
+        return
+    if isinstance(left_type, FloatType) or isinstance(right_type, FloatType):
+        self.types[ctx] = FloatType()
+    else:
+        self.types[ctx] = IntType()
+
 
   def enterAddSub(self, ctx: SimpleLangParser.AddSubContext):
     pass
